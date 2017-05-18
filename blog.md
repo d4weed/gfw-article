@@ -64,6 +64,10 @@ ZEE Espagne/France
 
 ![](tinting.gif)
 
+![](brushes.png)
+
+
+
 ### Compute graphical attributes 'offline'
 JS is the bottleneck
 
