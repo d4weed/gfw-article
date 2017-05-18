@@ -26,7 +26,7 @@ There are many techniques to try to make canvas 2d rendering faster: shadow canv
 
 <a href="https://github.com/Vizzuality/GlobalFishingWatch/pull/332">I wish I knew earlier</a>, but this battle is basically lost in advance. There's just no way a CPU can handle moving that much heatmap brushes above 5 fps on a desktop, let alone a mobile CPU.
 
-Naturally an awesome contender when you think of spatiotemporal animations: CARTO's Torque. Torque works by mashing SQL tables into preprocessed tilecubes, then rendered into a good old canvas 2D. It can deliver relatively good performance with typical datasets, because there is a step of spatial and temporal aggregation done 'offline'. It is an amazingly smart way to tackle the problem but unfortunately it comes "by nature" with two major flaws:
+Naturally an awesome contender when you think of spatiotemporal animations: <a href="https://carto.com/torque/">CARTO's Torque</a>. Torque works by mashing SQL tables into preprocessed tilecubes, then rendered into a good old canvas 2D. It can deliver relatively good performance with typical datasets, because there is a step of spatial and temporal aggregation done 'offline'. It is an amazingly smart way to tackle the problem but unfortunately it comes "by nature" with two major flaws:
 - you can't do any client side changes to the rendering, which makes interaction niceties such as mouse hover effects impossible to achieve;
 - interacting with the time attributes is very limited. Changing the time span rendered requires changing your SQL query and do a roundtrip with the server. But we had high ambitions:
 
@@ -48,17 +48,22 @@ In terms of programming, WebGL is a wildly different beast than canvas 2D. It al
 
 It turns out there are a bunch of very smart(er) people out there, willing to do the hard work for us, which is: exposing GLSL functionality to a high level API in JavaScript, typically using some stage hierarchy paradigm, think `container.addChild(sprite); sprite.x = 42;` (oooh the glorious days of Flash, may you rest in peace). Those smart people build what's called <a href="https://html5gameengine.com/">2D rendering libraries for the browser</a>: Phaser, Pixi.js, HaxeFlixel, etc. Those libraries are typically used to develop games, but why not for tracking illegal fishing on a map as well?
 
-So how do you pick a rendering engine? Project's activity on GitHub, quality of the documentation, reputation ? Yeah, sure, but more importantly: performance, aka BUNNIES !
+So how do you pick a rendering engine? Project's activity on GitHub, quality of the documentation, reputation ? Yeah, sure, but more importantly: BUNNIES !
 
 ![](bunnies-small.gif)
 
-Since Pixi.js can render and animate tens of thousands of bunnies on a blank canvas without breaking a sweat, it will render and animate tens of thousands of fishing vessels on a map.
+Yes, people use bouncing bunnies to measure a 2D graphics engine performance, why? Since Pixi.js can render and animate <a href="http://www.goodboydigital.com/pixijs/bunnymark/">tens of thousands of bunnies</a> on a blank canvas without breaking a sweat, it will surely render and animate tens of thousands of fishing vessels on a map.
 
 So we can stay in the nice High-level-land of JavaScript, while leaving the GLSL logic to tested and proven codebases. We focus on highly maintainable, abstract code that ties well with our application model (Redux) and the rest of the UI rendering logic (React), while all the "dirty work" is done by the rendering engine.
 
-As an added bonus, Pixi.js can fallback to rendering into a canvas 2D, for older setups (you might be surprised for instance, to learn that the Intel HD 3000 GPU, which equips a lot of 2010-2012 macs, is on Chrome's WebGL blacklist). We even discovered, as a late minute surprise, that the performance with this mode was quite tolerable.
+As an added bonus, Pixi.js can fallback to rendering into a canvas 2D, for older setups (you might be surprised for instance, to learn that the Intel HD 3000 GPU, which equips a lot of 2010-2012 macs, <a href="https://twitter.com/alteredq/status/783240214584107008">is on Chrome's WebGL blacklist</a>). We even discovered, as a late minute surprise, that the performance with this mode was quite tolerable.
 
+### Tinting and switching brush styles
 
+ZEE Espagne/France
+
+### Compute graphical attributes 'offline'
+JS is the bottleneck
 
 
 ### Map / canvas interaction
@@ -72,7 +77,6 @@ Do NOT render while panning or zooming
 
 Move sprites off-stage, instead of instanciating/removing
 
-### Tinting and switching brush styles
 
 
 
