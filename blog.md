@@ -9,22 +9,35 @@ Context: joint effort with Google, Oceana and Skytruth
  our partner Skytruth delivers highly efficient binary vector tiles, where points are cluster both in time and spatially.
 
 
-I want to focus here on how we achieved the "heatmap" style of this map, with reasonably good performance, a maintainable, high-level codebase, and still some sanity left.
+I want to focus here on how we achieved the animated "heatmap" style of this map, with reasonably good performance, a maintainable, high-level codebase, and still some sanity left.
 
-alternative to Mapbox GL
-- Google Maps
-- custom tileset format, with a custom GIS pipeline
+![](animation.gif)
+
+
 
 ### Early explorations: Canvas 2D and Torque
 
-Explored canvas. used successfully in Global Forest Watch, though the rendering style is different, aka we are encoding values into pixels, while we were aiming at the already mentioned "heatmap" style. We had a few debates on how
+Vizzuality already implemented an animated heatmap with Canvas 2D, this time not to save fish, but forests, in project called <a href="http://www.globalforestwatch.org/">GlobalForestWatch</a>. This for instance shows the tree cover loss in the southern Amazonia from 2001 to 2015:
+
+![](forest.gif)
+
+Canvas 2D is an API that allows drawing shapes, text and images into a drawing surface. But really what it does is just, basically, moving pixels around. Even if it only relies on the CPU to render graphics, it can achieve solid performance, at least with that kind of pixellated rendering style. How? Prepare a typed array containing all pixel values (<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray">`Uint8ClampedArray`</a>) and dump them into your canvas all at once (<a href="https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/putImageData">`putImageData()`</a>). Done.
 
 ![](https://cloud.githubusercontent.com/assets/704210/16413800/89181720-3d34-11e6-92ce-a3ffc7786b72.gif)
 
-Didn't perform well *at all* the rendering style we had in mind (initial Skytruth prototype).
-There are many techniques to try to make canvas 2d rendering faster: shadow canvas, batch drawing API calls, grouping drawing commands by color/opacity, avoid sub-pixel rendering, staring at your screen with creepy eyes, <a href="https://www.html5rocks.com/en/tutorials/canvas/performance/">etc</a>.
+We started early prototypes of GlobalFishingWatch with that approach, but we were aiming at a different rendering style. While the pixellated style works well for analysis, we were looking for something that would convey the idea of a "pulsating" activity, highlighting fishing seasons variations and their potential impact on the environment.
 
-<a href="https://github.com/Vizzuality/GlobalFishingWatch/pull/332">I wish I knew earlier</a>, but this battle is basically lost in advance. There's just no way a CPU can handle moving that much heatmap brushes above 5 fps on a desktop, let alone a mobile CPU.
+![](heatmap.gif)
+
+To achieve this effect, we need to blend many many times "brushes strokes" (a tiny picture with a radial gradient gradually transparent) into the canvas, each brush representing here a point in time and space where a vessel caught fish. We can then play with the size and opacity of the brush to encode fishing activity.
+
+Can we achieve that with canvas 2D? Well, there are many techniques to try to make canvas 2d rendering faster: shadow canvas, batch drawing API calls, grouping drawing commands by color/opacity, avoid sub-pixel rendering, staring at your screen with creepy eyes, <a href="https://www.html5rocks.com/en/tutorials/canvas/performance/">etc</a>.
+
+<a href="https://github.com/Vizzuality/GlobalFishingWatch/pull/332">I wish I knew earlier</a>, but the truth is that this battle is basically lost in advance. There's just no way a CPU can handle moving that much brushes above 5 fps on a desktop, let alone a mobile CPU.
+
+
+### A true "heatmap" style: Torque ?
+
 
 Naturally an awesome contender when you think of spatiotemporal animations: <a href="https://carto.com/torque/">CARTO's Torque</a>. Torque works by mashing SQL tables into preprocessed tilecubes, then rendered into a good old canvas 2D. It can deliver relatively good performance with typical datasets, because there is a step of spatial and temporal aggregation done 'offline'. It is an amazingly smart way to tackle the problem but unfortunately it comes "by nature" with two major flaws:
 - you can't do any client side changes to the rendering, which makes interaction niceties such as mouse hover effects impossible to achieve;
@@ -88,5 +101,10 @@ Move sprites off-stage, instead of instanciating/removing
 
 
 ### Conclusion
+
+alternative to Mapbox GL
+- Google Maps
+- custom tileset format, with a custom GIS pipeline
+
 
 Phew, that was a journey. BTW, Vizzuality is looking for talented people to stop illegal fishing and deforestation by working on that kind of challenges.
