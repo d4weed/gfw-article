@@ -8,6 +8,8 @@ Context: joint effort with Google, Oceana and Skytruth
 - 4+ years of data
  our partner Skytruth delivers highly efficient binary vector tiles, where points are cluster both in time and spatially.
 
+Google BigQuery
+
 
 I want to focus here on how we achieved the animated "heatmap" style of this map, with reasonably good performance, a maintainable, high-level codebase, and still some sanity left.
 
@@ -39,9 +41,14 @@ Can we achieve that with canvas 2D? Well, there are many techniques to try to ma
 ### A true "heatmap" style: Torque ?
 
 
-Naturally an awesome contender when you think of spatiotemporal animations: <a href="https://carto.com/torque/">CARTO's Torque</a>. Torque works by mashing SQL tables into preprocessed tilecubes, then rendered into a good old canvas 2D. It can deliver relatively good performance with typical datasets, because there is a step of spatial and temporal aggregation done 'offline'. It is an amazingly smart way to tackle the problem but unfortunately it comes "by nature" with two major flaws:
+![](bbva-small.gif)
+
+
+Naturally an awesome contender when you think of spatiotemporal animations: <a href="https://carto.com/torque/">CARTO's Torque</a> (<a href="http://www.vizzuality.com/projects/BBVA">which we used in the past</a>)
+
+Torque works by mashing SQL tables into preprocessed <a href="https://github.com/CartoDB/torque-tiles">tilecubes</a>, then rendered into a good old canvas 2D. It can deliver relatively good performance with typical datasets, because there is a step of spatial and temporal aggregation done 'offline'. It is an amazingly smart way to tackle the problem but unfortunately it comes "by nature" with two major flaws:
 - you can't do any client side changes to the rendering, which makes interaction niceties such as mouse hover effects impossible to achieve;
-- interacting with the time attributes is very limited. Changing the time span rendered requires changing your SQL query and do a roundtrip with the server. But we had high ambitions:
+- interacting with the time attributes is very limited. Changing the time span rendered requires changing your SQL query and doing a roundtrip with the server. But we had high ambitions:
 
 ![](time.gif)
 
@@ -55,7 +62,7 @@ So after a good deal of hesitations and hair pulling, this day finally happened:
 
 We dropped all hope of using canvas 2D, and went with a shiny new WebGL implementation instead.
 
-WebGL is tapping into the raw power of Graphic Processing Units (GPUs). Things a GPU is good at. Heating up the room. Drawing a million times the same thing, insanely fast. Sounds like it could work for us. We want to draw heatmap brushes to represent fishing vessels, a lot of times (they are almost the same, but size, opacity and tint vary, so we might have to be a bit smart about this).
+WebGL is tapping into the raw power of Graphic Processing Units (GPUs). Things a GPU is good at. Heating up the room. Drawing a million times the same thing, insanely fast. Sounds like it could work for us. We want to draw heatmap brushes to represent fishing vessels, a lot of times (they are almost the same, but size, opacity and tint will vary, so we might have to be a bit smart about this).
 
 In terms of programming, WebGL is a wildly different beast than canvas 2D. It allows your puny JS code to talk to your GPU through OpenGL Shading Language (GLSL), a language similar to C or C++. GLSL is very, very terse, difficult to debug, and hard to maintain. _[whispered, sobbing voice] I'm afraid of GLSL. Can I go home now ?_.
 
@@ -73,17 +80,31 @@ As an added bonus, Pixi.js can fallback to rendering into a canvas 2D, for older
 
 ### Tinting and switching brush styles
 
-ZEE Espagne/France
+So WebGL is fast and all, but this doesn't mean that we don't have to be a little bit smart. When talking to a graphics API such as WebGL, what's expensive is a lot of times not what's happening within the GPU realm, but rather on the CPU side.
+
+At the lowest level, we have **draw calls**. A draw call is a set of instructions prepared by the CPU and sent to the GPU, and is usually one of the main bottlenecks when doing accelerated graphics.
+
+One of the ways to reduce the number of draw calls is to limit the number of textures we are going to use. Take for example this animation, showing French and Spanish vessels across the borders of the respective countries <a href="http://www.journaldelenvironnement.net/article/france-et-espagne-se-marchent-sur-la-zee-et-ses-ressources,34897">Exclusive Economic Zones</a> (french). We need different colors to distinguish Spanish and French vessels:
 
 ![](tinting.gif)
 
+Instead of using two textures for the two brush colors, we'll have them share the same texture, using a technique called texture atlasing:
+
 ![](brushes.png)
 
+So when rendering a **sprite**, instead of setting a texture per rendering style, we'll just crop a portion of that big **spritesheet**, the relevant part for both hue and rendering styles (the solid circles on the right are used at higher zoom levels).
 
+We end up with a single geometry, containing all sprites of the scene, using a single texture, which amount to a single draw call. The only thing left to update are the sprites texture offsets, positions and sizes (in the GPU world, vertices UVs and transforms).
 
 ### Compute graphical attributes 'offline'
-JS is the bottleneck
 
+So how do we actually update those positions and sizes ? We have to get them from the raw tiles data, which contains the latitude and longitude of fishing points, as well as two variables encoding the amount of fishing happening, and convert them to point and positions on the screen.
+
+This is a costly operation, all happening on the CPU:
+- latitude and longitude, which represents a position on the surface of a sphere (so, angles), have first to be projected on a 2D plane, aka "world coordinates" (using the Web Mercator projection), then to screen coordinates.
+- fishing activity must be translated to a sprite size and opacity, which also depends on the current zoom level.
+
+The strategy here was to precompute these values right after a tile gets loaded, instead of doing it at each step of the animation. There are future plans of doing that calculation step on the backend. Which, by the way, is how standard vector tiles work: rather than meaningful geographical data, they carry tile-relative geometrical data, or drawing instructions if you prefer).
 
 ### Map / canvas interaction
 
@@ -94,11 +115,26 @@ Do NOT render while panning or zooming
 
 ### Pooling
 
-Move sprites off-stage, instead of instanciating/removing
+One other trick we used is probably almost as old as computer graphics: pooling.
 
+Each distinct point in our fishing map is represented by a sprite, a JavaScript object (before being fed to WebGL). It's tempting to instanciate the number of objects you need at each animation frame, but one quickly realizes that:
+- creating those objects is costly: framerate will drop
+- deleting those objects, something done automatically by the garbage collector*: a lot of frames will be skipped at unpredictable times
 
+ _here's an <a href="https://medium.com/@_lrlna/garbage-collection-in-v8-an-illustrated-guide-d24a952ee3b8">illustrated guide</a>)_
 
+Creating all those objects, my friends, is the cost of using higher level abstractions, because WebGL has no such concept of objects. You trade a little bit of performance, for code expressiveness.
 
+So to bypass that performance limitation you will:
+- make an estimation of how many sprites you will need (here, depending on the time span selected and the viewport size);
+- instanciate all those sprites at once, store them into a pool;
+- at each frame, position on the canvas as many sprites as you need to render that frame;
+- keep the leftover sprites just moving them off-stage instead of deleting them
+- whenever time span or viewport size changes, instanciate more sprites if needed
+
+### Rendering tracks
+
+![](tracks.gif)
 
 ### Conclusion
 
