@@ -6,7 +6,7 @@ The way we fix this problem is by using humanity's source and solution to all pr
 
 ![](animation.gif)
 
-<a href="globalfishingwatch.org/">GlobalFishingWatch</a> is a free and global monitoring system for citizens, journalists, NGOs, governments, fishermen and seafood suppliers. It's <a href="https://www.youtube.com/watch?v=uVpwBzFnxI8">"going to change the way illegal fishing is done"</a>, by providing access to detailed information about over 150,000 fishing vessels over the last 4 years.
+<a href="globalfishingwatch.org/">GlobalFishingWatch</a> is a free and global monitoring system for citizens, journalists, NGOs, governments, fishermen and seafood suppliers. It's <a href="https://www.youtube.com/watch?v=uVpwBzFnxI8">"going to make illegal fishing much harder"</a>, by providing access to detailed information about over 150,000 fishing vessels over the last 4 years.
 
 Where is this data coming from? <a href="http://www.economist.com/news/briefing/21722629-oceans-face-dire-threats-better-regulated-fisheries-would-help-getting-serious-about">This article</a> from The Economist sums it up neatly:
 
@@ -38,7 +38,7 @@ To achieve this kind of heatmap effect, we need to blend many many times "brushe
 
 Can we do that with Canvas 2D? There are many techniques to try to make it perform faster: shadow canvas, batch drawing API calls, grouping drawing commands by color/opacity, avoid sub-pixel rendering, staring at your screen with a desperate look, <a href="https://www.html5rocks.com/en/tutorials/canvas/performance/">etc</a>.
 
-<a href="https://github.com/Vizzuality/GlobalFishingWatch/pull/332">I wish I knew earlier</a>, but the truth is that this battle is basically lost in advance. There's just no way a CPU can handle moving that much brushes on a desktop (we're talking tens of of thousands) above sluggish speeds at best - let alone with a phone CPU.
+<a href="https://github.com/Vizzuality/GlobalFishingWatch/pull/332#issuecomment-258785202">I wish I knew earlier</a>, but the truth is that this battle is basically lost in advance. There's just no way a CPU can handle moving that much brushes on a desktop (we're talking tens of of thousands) above sluggish speeds at best - let alone with a phone CPU.
 
 
 ### A true "heatmap" style: Torque ?
@@ -159,7 +159,7 @@ To render vessel tracks, we tapped into Pixi.js's <a href="http://pixijs.downloa
 
 Why yes, I managed to write a whole post about maps and WebGL, in 2017, without even mentioning Mapbox. Mapbox basically brought vector tiles and GPU accelerated maps to the wide mapping community (including non tech). They host OSM-based or custom data vector tiles, that are delivered through a JS client (<a href="https://github.com/mapbox/mapbox-gl-js">Mapbox GL JS</a>) or native clients for mobile. The "holistic" approach of the map stack allows for stunning maps, with smooth transitions, client-side restyling, multilingual labels, etc, all rendered by the GPU, usually at a good solid 60 fps for regular use cases.
 
-One reason we went with a different approach is primarily that using Google Maps was an initial requirement, which virtually barred Mapbox from our options from the start. Add to that a completely custom GIS pipeline not designed from the start to produce vector tiles in formats compatible with Mapbox GL JS (it would likely be PBF in our case).
+One reason we went with a different approach is primarily that using Google Maps was an initial requirement, which virtually barred Mapbox from our options from the start. Add to that a completely custom GIS pipeline not designed from the start to produce vector tiles in formats compatible with Mapbox GL JS (it would likely be PBF tiles in our case).
 
 But in hindsight, using a completely different stack was an interesting journey, and &lt;insert self praise here&gt;.
 
